@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.bdPostgres.name }}-deployment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.bdPostgres.name }}
+spec:
+  replicas: {{ .Values.bdPostgres.replicaCount }}
+  selector:
+    matchLabels:
+      appName: {{ .Values.bdPostgres.name }}
+  template:
+    metadata:
+      labels:
+        appName: {{ .Values.bdPostgres.name }}
+    spec:
+      containers:
+      - name: {{ .Values.bdPostgres.name }}
+        image: {{ .Values.bdPostgres.image }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: {{ .Values.bdPostgres.containerPort }}
+        envFrom:
+        - secretRef:
+            name: {{ .Values.bdPostgres.name }}-secret
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: {{ .Values.bdPostgres.volumeMountName }}
+      volumes:
+      - name: {{ .Values.bdPostgres.volumeMountName }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.namespace }}-volumen-postgres

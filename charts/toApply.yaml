@@ -1,0 +1,196 @@
+---
+# Source: helm-final-project/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    name: final-project-namespace
+  name: final-project
+---
+# Source: helm-final-project/templates/bd-postgres/1- secrets.yaml
+kind: Secret
+apiVersion: v1
+metadata:
+  name: bd-postgres-secret
+  namespace: final-project
+type: Opaque
+data:
+  POSTGRES_DB: bXlkYXRhYmFzZQ==
+  POSTGRES_USER: dXNlcm5hbWU=
+  POSTGRES_PASSWORD: cGFzc3dvcmQ=
+---
+# Source: helm-final-project/templates/persistentVolume.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: final-project-volumen-pv
+spec:
+  accessModes:
+    - ReadWriteOnce # El volumen puede ser montado como read-write por un unico nodo
+  capacity:
+    storage: 2Gi
+  hostPath:
+    path: /data/pv0001/ # https://minikube.sigs.k8s.io/docs/handbook/persistent_volumes/
+---
+# Source: helm-final-project/templates/bd-postgres/persistentVolumeClaim.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: final-project-volumen-postgres  
+  namespace: final-project
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  volumeName: final-project-volumen-pv 
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: helm-final-project/templates/app-contador/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-contador-service 
+  namespace: final-project
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 8080   # <- Prestar atencion
+      targetPort: 8000
+  selector:
+    appName: app-contador
+---
+# Source: helm-final-project/templates/app-saludo/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-saludo-service 
+  namespace: final-project
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 8081 
+      targetPort: 8000
+  selector:
+    app: app-saludo
+---
+# Source: helm-final-project/templates/app-contador/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-contador-deployment 
+  namespace: final-project
+  labels:
+    appName: app-contador
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appName: app-contador
+  template:
+    metadata:
+      labels:
+        appName: app-contador
+    spec:
+      containers: # <- ¡Multi-container pod! La app hace consultas al redis en localhost
+      - name: app-contador
+        image: matiops/intro-k8s:app-contador
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+      - name: app-contador-redis
+        image: redis
+        ports:
+        - containerPort: 6379
+---
+# Source: helm-final-project/templates/app-saludo/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-saludo-deployment 
+  namespace: final-project
+  labels:
+    app: app-saludo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appName: app-saludo
+  template:
+    metadata:
+      labels:
+        appName: app-saludo
+    spec:
+      containers:
+      - name: app-saludo
+        image: matiops/intro-k8s:app-saludo
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+---
+# Source: helm-final-project/templates/bd-postgres/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bd-postgres-deployment
+  namespace: final-project
+  labels:
+    app: bd-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appName: bd-postgres
+  template:
+    metadata:
+      labels:
+        appName: bd-postgres
+    spec:
+      containers:
+      - name: bd-postgres
+        image: postgres:13.13-alpine3.17
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        envFrom:
+        - secretRef:
+            name: bd-postgres-secret
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgresdata
+      volumes:
+      - name: postgresdata
+        persistentVolumeClaim:
+          claimName: final-project-volumen-postgres
+---
+# Source: helm-final-project/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: final-project-ingress
+  namespace: final-project
+  annotations: 
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: finalproject # curl --resolve "finalproject:80:$( minikube ip )" -i http://finalproject/app-saludo
+    http:
+      paths:
+      - path: /app-contador
+        pathType: Prefix
+        backend:
+          service: # <- Indicamos a cual service dirigir la query para esta regla
+            name: app-contador-service 
+            port:
+              number: 8080
+      - path: /app-saludo(/|$)(.*) # <- Necesario para implementar el path rewrite. Surge de la documentación
+        pathType: ImplementationSpecific # <- Necesario para implementar el path rewrite. Surge de la documentación
+        backend:
+          service:
+            name: app-saludo-service 
+            port:
+              number: 8081 # <- Como son dos services diferentes, ambos podrian escuchar el 8000 sin problemas. Sin embargo, por cuestion pedagogica, se mantiene la diferencia.

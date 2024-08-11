@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.namespace }}-volumen-pv
+spec:
+  accessModes:
+    - ReadWriteOnce # El volumen puede ser montado como read-write por un unico nodo
+  capacity:
+    storage: 2Gi
+  hostPath:
+    path: /data/pv0001/ # https://minikube.sigs.k8s.io/docs/handbook/persistent_volumes/

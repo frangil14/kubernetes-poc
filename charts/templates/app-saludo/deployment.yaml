@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appSaludo.name }}-deployment 
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.appSaludo.name }}
+spec:
+  replicas: {{ .Values.appSaludo.replicaCount }}
+  selector:
+    matchLabels:
+      appName: {{ .Values.appSaludo.name }}
+  template:
+    metadata:
+      labels:
+        appName: {{ .Values.appSaludo.name }}
+    spec:
+      containers:
+      - name: {{ .Values.appSaludo.name }}
+        image: {{ .Values.appSaludo.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.appContador.containerPort }}

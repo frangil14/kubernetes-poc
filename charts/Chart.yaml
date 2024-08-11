@@ -1,0 +1,6 @@
+apiVersion: v2
+name: helm-final-project
+description: Un chart para el despliegue del Trabajo final
+type: application
+version: 1.0.0
+appVersion: "1.16.0"

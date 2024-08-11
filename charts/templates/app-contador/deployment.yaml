@@ -1,0 +1,28 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appContador.name }}-deployment 
+  namespace: {{ .Values.namespace }}
+  labels:
+    appName: {{ .Values.appContador.name }}
+spec:
+  replicas: {{ .Values.appContador.replicaCount }}
+  selector:
+    matchLabels:
+      appName: {{ .Values.appContador.name }}
+  template:
+    metadata:
+      labels:
+        appName: {{ .Values.appContador.name }}
+    spec:
+      containers: # <- ¡Multi-container pod! La app hace consultas al redis en localhost
+      - name: {{ .Values.appContador.name }}
+        image: {{ .Values.appContador.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.appContador.containerPort }}
+      - name: {{ .Values.appContador.name }}-{{ .Values.appContador.cacheDatabase }}
+        image: {{ .Values.appContador.cacheDatabase }}
+        ports:
+        - containerPort: {{ .Values.appContador.cacheContainerPort }}
