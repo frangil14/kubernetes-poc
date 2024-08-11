@@ -19,6 +19,15 @@ data:
   POSTGRES_USER: dXNlcm5hbWU=
   POSTGRES_PASSWORD: cGFzc3dvcmQ=
 ---
+# Source: helm-final-project/templates/app-database/configMap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-database-configmap
+  namespace: final-project
+data:
+  TRACK_MODIFICATIONS: 'False'
+---
 # Source: helm-final-project/templates/persistentVolume.yaml
 apiVersion: v1
 kind: PersistentVolume
@@ -62,6 +71,21 @@ spec:
   selector:
     appName: app-contador
 ---
+# Source: helm-final-project/templates/app-database/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-database-service 
+  namespace: final-project
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 5000 
+      targetPort: 5000
+  selector:
+    appName: app-database
+---
 # Source: helm-final-project/templates/app-saludo/service.yaml
 apiVersion: v1
 kind: Service
@@ -75,7 +99,22 @@ spec:
       port: 8081 
       targetPort: 8000
   selector:
-    app: app-saludo
+    appName: app-saludo
+---
+# Source: helm-final-project/templates/bd-postgres/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: bd-postgres-service 
+  namespace: final-project
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 5432 
+      targetPort: 5432
+  selector:
+    appName: bd-postgres
 ---
 # Source: helm-final-project/templates/app-contador/deployment.yaml
 apiVersion: apps/v1
@@ -105,6 +144,39 @@ spec:
         image: redis
         ports:
         - containerPort: 6379
+---
+# Source: helm-final-project/templates/app-database/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-database-deployment
+  namespace: final-project
+  labels:
+    app: app-database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appName: app-database
+  template:
+    metadata:
+      labels:
+        appName: app-database
+    spec:
+      containers:
+      - name: app-database
+        image: frangil14/web-service-flask:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - secretRef:
+            name: bd-postgres-secret
+        - configMapRef:
+            name: app-database-configmap
+        env:
+        - name: DATABASE_URI
+          value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@bd-postgres-service:5432/$(POSTGRES_DB)
 ---
 # Source: helm-final-project/templates/app-saludo/deployment.yaml
 apiVersion: apps/v1
@@ -173,7 +245,7 @@ metadata:
   name: final-project-ingress
   namespace: final-project
   annotations: 
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
@@ -193,4 +265,11 @@ spec:
           service:
             name: app-saludo-service 
             port:
-              number: 8081 # <- Como son dos services diferentes, ambos podrian escuchar el 8000 sin problemas. Sin embargo, por cuestion pedagogica, se mantiene la diferencia.
+              number: 8081 
+      - path: /app-database(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service: # <- Indicamos a cual service dirigir la query para esta regla
+            name: app-database-service 
+            port:
+              number: 5000

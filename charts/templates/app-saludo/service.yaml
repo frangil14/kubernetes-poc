@@ -10,4 +10,4 @@ spec:
       port: {{ .Values.appSaludo.service.port }} 
       targetPort: {{ .Values.appSaludo.containerPort }}
   selector:
-    app: {{ .Values.appSaludo.name }}  
+    appName: {{ .Values.appSaludo.name }}  

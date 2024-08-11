@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appDatabase.name }}-configmap
+  namespace: {{ .Values.namespace }}
+data:
+  TRACK_MODIFICATIONS: 'False'

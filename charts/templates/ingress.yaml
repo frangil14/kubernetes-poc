@@ -24,5 +24,12 @@ spec:
           service:
             name: {{ .Values.appSaludo.name }}-service 
             port:
-              number: {{ .Values.appSaludo.service.port }} # <- Como son dos services diferentes, ambos podrian escuchar el 8000 sin problemas. Sin embargo, por cuestion pedagogica, se mantiene la diferencia.
+              number: {{ .Values.appSaludo.service.port }} 
+      - path: {{ .Values.ingress.appDatabase.path }}
+        pathType: {{ .Values.ingress.appDatabase.pathType }}
+        backend:
+          service: # <- Indicamos a cual service dirigir la query para esta regla
+            name: {{ .Values.appDatabase.name }}-service 
+            port:
+              number: {{ .Values.appDatabase.service.port }}
 ---
