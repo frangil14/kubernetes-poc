@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-  - host: {{ .Values.ingress.host }} # curl --resolve "finalproject:80:$( minikube ip )" -i http://finalproject/app-saludo
+  - host: {{ .Values.ingress.host }} 
     http:
       paths:
       - path: {{ .Values.ingress.appContador.path }}
@@ -18,17 +18,24 @@ spec:
             name: {{ .Values.appContador.name }}-service 
             port:
               number: {{ .Values.appContador.service.port }}
-      - path: {{ .Values.ingress.appSaludo.path }} # <- Necesario para implementar el path rewrite. Surge de la documentación
+      - path: {{ .Values.ingress.appSaludo.path }} 
         pathType: {{ .Values.ingress.appSaludo.pathType }} # <- Necesario para implementar el path rewrite. Surge de la documentación
         backend:
           service:
             name: {{ .Values.appSaludo.name }}-service 
             port:
               number: {{ .Values.appSaludo.service.port }} 
+      - path: {{ .Values.ingress.podList.path }} 
+        pathType: {{ .Values.ingress.podList.pathType }} 
+        backend:
+          service:
+            name: {{ .Values.podList.name }}-service 
+            port:
+              number: {{ .Values.podList.service.port }} 
       - path: {{ .Values.ingress.appDatabase.path }}
         pathType: {{ .Values.ingress.appDatabase.pathType }}
         backend:
-          service: # <- Indicamos a cual service dirigir la query para esta regla
+          service: 
             name: {{ .Values.appDatabase.name }}-service 
             port:
               number: {{ .Values.appDatabase.service.port }}

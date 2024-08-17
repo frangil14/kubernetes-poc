@@ -7,6 +7,13 @@ metadata:
     name: final-project-namespace
   name: final-project
 ---
+# Source: helm-final-project/templates/serviceAccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: final-project-sa
+  namespace: final-project
+---
 # Source: helm-final-project/templates/bd-postgres/1- secrets.yaml
 kind: Secret
 apiVersion: v1
@@ -27,6 +34,15 @@ metadata:
   namespace: final-project
 data:
   TRACK_MODIFICATIONS: 'False'
+---
+# Source: helm-final-project/templates/bd-postgres/configMap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bd-postgres-configmap
+  namespace: final-project
+data:
+  init.sql:     CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY,name VARCHAR(50) NOT NULL,age INTEGER NOT NULL);
 ---
 # Source: helm-final-project/templates/persistentVolume.yaml
 apiVersion: v1
@@ -55,6 +71,31 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+# Source: helm-final-project/templates/pod-list/rbac/clusterRole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
+  name: pod-list-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+# Source: helm-final-project/templates/pod-list/rbac/clusterRoleBinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pod-list-clusterrolebinding
+subjects:
+- kind: ServiceAccount # <-
+  name: final-project-sa
+  namespace: final-project
+roleRef:
+  kind: ClusterRole # <-
+  name: pod-list-reader
+  apiGroup: rbac.authorization.k8s.io
 ---
 # Source: helm-final-project/templates/app-contador/service.yaml
 apiVersion: v1
@@ -115,6 +156,21 @@ spec:
       targetPort: 5432
   selector:
     appName: bd-postgres
+---
+# Source: helm-final-project/templates/pod-list/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-list-service 
+  namespace: final-project
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80 
+      targetPort: 8080
+  selector:
+    appName: pod-list
 ---
 # Source: helm-final-project/templates/app-contador/deployment.yaml
 apiVersion: apps/v1
@@ -230,13 +286,57 @@ spec:
         envFrom:
         - secretRef:
             name: bd-postgres-secret
+        command: [ "bash", "-c" ]
+        args:
+          - |
+            /usr/local/bin/docker-entrypoint.sh postgres &
+
+            until pg_isready -h localhost -p 5432 -U "$POSTGRES_USER"; do
+              echo "Waiting for PostgreSQL to be ready..."
+              sleep 2
+            done
+
+            if [ -f /docker-entrypoint-initdb.d/init.sql ]; then
+              echo "Running initialization script..."
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/init.sql
+            fi
+
+            wait
         volumeMounts:
-        - mountPath: /var/lib/postgresql/data
-          name: postgresdata
+        - name: postgresdata
+          mountPath: /var/lib/postgresql/data
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d
       volumes:
       - name: postgresdata
         persistentVolumeClaim:
           claimName: final-project-volumen-postgres
+      - name: init-scripts
+        configMap:
+          name: bd-postgres-configmap
+---
+# Source: helm-final-project/templates/pod-list/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-list-deployment
+  namespace: final-project
+  labels:
+    app: pod-list
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appName: pod-list
+  template:
+    metadata:
+      labels:
+        appName: pod-list
+    spec:
+      containers:
+      - name: pod-list
+        image: shayulmer/kubernetes-pods-extractor:latest
+      serviceAccountName: final-project-sa
 ---
 # Source: helm-final-project/templates/ingress.yaml
 apiVersion: networking.k8s.io/v1
@@ -249,7 +349,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: finalproject # curl --resolve "finalproject:80:$( minikube ip )" -i http://finalproject/app-saludo
+  - host: finalproject 
     http:
       paths:
       - path: /app-contador
@@ -259,17 +359,24 @@ spec:
             name: app-contador-service 
             port:
               number: 8080
-      - path: /app-saludo(/|$)(.*) # <- Necesario para implementar el path rewrite. Surge de la documentación
+      - path: /app-saludo(/|$)(.*) 
         pathType: ImplementationSpecific # <- Necesario para implementar el path rewrite. Surge de la documentación
         backend:
           service:
             name: app-saludo-service 
             port:
               number: 8081 
+      - path: /pod-list 
+        pathType: Prefix 
+        backend:
+          service:
+            name: pod-list-service 
+            port:
+              number: 80 
       - path: /app-database(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
-          service: # <- Indicamos a cual service dirigir la query para esta regla
+          service: 
             name: app-database-service 
             port:
               number: 5000

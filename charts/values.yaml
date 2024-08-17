@@ -90,7 +90,7 @@ ingress:
     path: /app-contador
     pathType: Prefix
   podList:
-    path: /podList
+    path: /pod-list
     pathType: Prefix
   appSaludo:
     path: /app-saludo(/|$)(.*)

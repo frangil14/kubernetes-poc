@@ -24,12 +24,27 @@ spec:
         envFrom:
         - secretRef:
             name: {{ .Values.bdPostgres.name }}-secret
-        command: ['sh', '-c', 'psql -U username -d mydatabase -f /init_scripts/init.sql']
+        command: [ "bash", "-c" ]
+        args:
+          - |
+            /usr/local/bin/docker-entrypoint.sh postgres &
+
+            until pg_isready -h localhost -p 5432 -U "$POSTGRES_USER"; do
+              echo "Waiting for PostgreSQL to be ready..."
+              sleep 2
+            done
+
+            if [ -f /docker-entrypoint-initdb.d/init.sql ]; then
+              echo "Running initialization script..."
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/init.sql
+            fi
+
+            wait
         volumeMounts:
         - name: {{ .Values.bdPostgres.volumeMountName }}
           mountPath: /var/lib/postgresql/data
         - name: init-scripts
-          mountPath: /init_scripts/
+          mountPath: /docker-entrypoint-initdb.d
       volumes:
       - name: {{ .Values.bdPostgres.volumeMountName }}
         persistentVolumeClaim:
