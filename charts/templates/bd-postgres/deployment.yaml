@@ -24,10 +24,16 @@ spec:
         envFrom:
         - secretRef:
             name: {{ .Values.bdPostgres.name }}-secret
+        command: ['sh', '-c', 'psql -U username -d mydatabase -f /init_scripts/init.sql']
         volumeMounts:
-        - mountPath: /var/lib/postgresql/data
-          name: {{ .Values.bdPostgres.volumeMountName }}
+        - name: {{ .Values.bdPostgres.volumeMountName }}
+          mountPath: /var/lib/postgresql/data
+        - name: init-scripts
+          mountPath: /init_scripts/
       volumes:
       - name: {{ .Values.bdPostgres.volumeMountName }}
         persistentVolumeClaim:
           claimName: {{ .Values.namespace }}-volumen-postgres
+      - name: init-scripts
+        configMap:
+          name: {{ .Values.bdPostgres.name }}-configmap
