@@ -65,12 +65,32 @@ appDatabase:
     port: 5000
 
 ############################
+podList:
+  name: pod-list
+  replicaCount: 1
+  image: shayulmer/kubernetes-pods-extractor:latest
+  containerPort: 8080
+  cpu:
+    request: "250m"
+    limit: "500m"
+  memory:
+    request: "200Mi"
+    limit: "2Gi"
+
+  service:
+    type: ClusterIP
+    port: 80
+
+############################
 ingress:
   rewriteTarget: /$2
   className: nginx
   host: finalproject
   appContador:
     path: /app-contador
+    pathType: Prefix
+  podList:
+    path: /podList
     pathType: Prefix
   appSaludo:
     path: /app-saludo(/|$)(.*)
