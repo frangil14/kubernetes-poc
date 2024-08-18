@@ -233,6 +233,11 @@ spec:
         env:
         - name: DATABASE_URI
           value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@bd-postgres-service:5432/$(POSTGRES_DB)
+      tolerations: 
+      - key: "disk"
+        operator: "Equal"
+        value: "ssh"
+        effect: "NoSchedule"
 ---
 # Source: helm-final-project/templates/app-saludo/deployment.yaml
 apiVersion: apps/v1
@@ -314,6 +319,11 @@ spec:
       - name: init-scripts
         configMap:
           name: bd-postgres-configmap
+      tolerations: 
+      - key: "disk"
+        operator: "Equal"
+        value: "ssh"
+        effect: "NoSchedule"
 ---
 # Source: helm-final-project/templates/pod-list/deployment.yaml
 apiVersion: apps/v1

@@ -29,3 +29,8 @@ spec:
         env:
         - name: DATABASE_URI
           value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@{{ .Values.bdPostgres.name }}-service:{{ .Values.bdPostgres.containerPort }}/$(POSTGRES_DB)
+      tolerations: 
+      - key: "disk"
+        operator: "Equal"
+        value: "ssh"
+        effect: "NoSchedule"

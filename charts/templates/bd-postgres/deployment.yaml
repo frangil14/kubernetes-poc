@@ -52,3 +52,8 @@ spec:
       - name: init-scripts
         configMap:
           name: {{ .Values.bdPostgres.name }}-configmap
+      tolerations: 
+      - key: "disk"
+        operator: "Equal"
+        value: "ssh"
+        effect: "NoSchedule"
